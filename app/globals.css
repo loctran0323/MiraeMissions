@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #faf7f2;
+  --foreground: #14171f;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-feature-settings: "ss01", "cv01", "cv11";
+}
+
+/* Subtle textured page background used across authed pages */
+.bg-page {
+  background-color: #faf7f2;
+  background-image:
+    radial-gradient(60% 50% at 100% 0%, rgba(242, 108, 30, 0.05) 0%, rgba(242, 108, 30, 0) 60%),
+    radial-gradient(50% 40% at 0% 0%, rgba(29, 47, 77, 0.05) 0%, rgba(29, 47, 77, 0) 55%);
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-navy-100 bg-white shadow-soft;
+  }
+  .card-muted {
+    @apply rounded-2xl border border-navy-100 bg-sand-100;
+  }
+  .input {
+    @apply w-full rounded-xl border border-navy-200 bg-white px-4 py-2.5 text-sm text-ink
+      placeholder:text-navy-400 outline-none transition
+      focus:border-mirae focus:ring-4 focus:ring-mirae/10;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-navy-800;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+      transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply btn bg-mirae text-white shadow-glow hover:bg-mirae-600;
+  }
+  .btn-secondary {
+    @apply btn border border-navy-200 bg-white text-navy-800 hover:bg-navy-50;
+  }
+  .btn-ghost {
+    @apply btn text-navy-600 hover:bg-navy-50;
+  }
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.18em] text-mirae;
+  }
+}
+
+/* Custom file-drop focus ring */
+.dropzone {
+  @apply rounded-2xl border-2 border-dashed border-navy-200 bg-sand-100/60 transition
+    hover:border-mirae/60 hover:bg-mirae-50/40;
+}

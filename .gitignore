@@ -1,2 +1,17 @@
 .claude/
 .DS_Store
+
+# dependencies
+node_modules/
+.next/
+next-env.d.ts
+
+# app data & uploads
+data/
+uploads/
+*.db
+*.db-*
+
+# env
+.env
+.env*.local
