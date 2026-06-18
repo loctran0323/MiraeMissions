@@ -2,89 +2,107 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { SubmissionDetail } from "@/lib/types";
 import {
   Avatar,
-  Button,
   Pill,
   SubmissionStatusBadge,
-  cn,
+  ArrowRight,
 } from "@/components/ui";
+import type { SubmissionDetail } from "@/lib/types";
 
-// A single submission with intern context, media gallery, and review actions.
-export function ReviewCard({ submission: s }: { submission: SubmissionDetail }) {
+export function ReviewCard({ submission }: { submission: SubmissionDetail }) {
   const router = useRouter();
   const [comment, setComment] = useState("");
-  const [sendBackOpen, setSendBackOpen] = useState(false);
-  const [busy, setBusy] = useState<null | "approve" | "needs_revision">(null);
+  const [showSendBack, setShowSendBack] = useState(false);
+  const [loading, setLoading] = useState<null | "approve" | "needs_revision">(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
 
-  const isApproved = s.status === "approved";
+  const isApproved = submission.status === "approved";
+  const isNeedsRevision = submission.status === "needs_revision";
 
-  async function review(action: "approve" | "needs_revision") {
-    setError(null);
-    if (action === "needs_revision" && comment.trim().length === 0) {
-      setError("Add a note telling the intern what to fix.");
-      return;
+  async function post(body: Record<string, unknown>) {
+    const res = await fetch("/api/admin/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || "Something went wrong. Please try again.");
     }
-    setBusy(action);
+  }
+
+  async function onApprove() {
+    setError(null);
+    setLoading("approve");
     try {
-      const res = await fetch("/api/admin/review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          submissionId: s.id,
-          action,
-          comment: action === "needs_revision" ? comment.trim() : undefined,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Could not save review.");
-      }
-      setSendBackOpen(false);
-      setComment("");
+      await post({ submissionId: submission.id, action: "approve" });
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
-    } finally {
-      setBusy(null);
+      setError(e instanceof Error ? e.message : "Unable to approve.");
+      setLoading(null);
+    }
+  }
+
+  async function onSendBack() {
+    setError(null);
+    const note = comment.trim();
+    if (!note) {
+      setError("A comment is required when sending back for revision.");
+      return;
+    }
+    setLoading("needs_revision");
+    try {
+      await post({
+        submissionId: submission.id,
+        action: "needs_revision",
+        comment: note,
+      });
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to send back.");
+      setLoading(null);
     }
   }
 
   return (
-    <article className="card animate-fade-up p-6 transition hover:shadow-lift">
-      {/* Header: intern + mission + status */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="card p-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-3">
-          <Avatar name={s.user.name} size={44} />
+          <Avatar name={submission.user.name} size={40} />
           <div>
-            <div className="font-semibold text-navy-900">{s.user.name}</div>
-            <div className="text-sm text-navy-400">{s.user.email}</div>
+            <div className="text-sm font-semibold text-ink-900">
+              {submission.user.name}
+            </div>
+            <div className="text-xs text-ink-400">{submission.user.email}</div>
           </div>
         </div>
-        <SubmissionStatusBadge status={s.status} />
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <h2 className="font-display text-lg font-bold text-navy-900">
-          {s.mission.title}
-        </h2>
-        <Pill>{s.mission.deliverable_type}</Pill>
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <div className="font-display font-semibold text-ink-900">
+            {submission.mission.title}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Pill>{submission.mission.deliverable_type}</Pill>
+            <SubmissionStatusBadge status={submission.status} />
+          </div>
+        </div>
       </div>
 
       {/* Memo */}
-      {s.memo && (
-        <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-sand p-4 text-sm leading-relaxed text-navy-700">
-          {s.memo}
-        </p>
+      {submission.memo && (
+        <blockquote className="mt-5 border-l-2 border-line pl-4 text-sm leading-relaxed text-ink-600">
+          {submission.memo}
+        </blockquote>
       )}
 
       {/* Media gallery */}
-      {s.files.length > 0 && (
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {s.files.map((f) => {
-            const src = `/api/files/${f.path}`;
+      {submission.files.length > 0 && (
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {submission.files.map((f) => {
+            const src = "/api/files/" + f.path;
             if (f.kind === "image") {
               return (
                 <a
@@ -92,14 +110,13 @@ export function ReviewCard({ submission: s }: { submission: SubmissionDetail }) 
                   href={src}
                   target="_blank"
                   rel="noreferrer"
-                  className="group block overflow-hidden rounded-xl border border-navy-100"
-                  title={f.original_name}
+                  className="group block overflow-hidden rounded-md border border-line"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={src}
                     alt={f.original_name}
-                    className="h-32 w-full object-cover transition group-hover:scale-105"
+                    className="h-32 w-full object-cover transition group-hover:opacity-90"
                   />
                 </a>
               );
@@ -108,9 +125,9 @@ export function ReviewCard({ submission: s }: { submission: SubmissionDetail }) 
               return (
                 <video
                   key={f.id}
-                  controls
                   src={src}
-                  className="h-32 w-full rounded-xl border border-navy-100 bg-navy-900 object-cover"
+                  controls
+                  className="h-32 w-full rounded-md border border-line bg-ink-950 object-cover"
                 />
               );
             }
@@ -120,95 +137,105 @@ export function ReviewCard({ submission: s }: { submission: SubmissionDetail }) 
                 href={src}
                 target="_blank"
                 rel="noreferrer"
-                className="flex h-32 items-center justify-center rounded-xl border border-dashed border-navy-200 px-3 text-center text-xs font-medium text-navy-500 hover:bg-navy-50"
+                className="flex h-32 flex-col items-center justify-center rounded-md border border-dashed border-line bg-ink-50 px-3 text-center text-xs font-medium text-ink-500 transition hover:border-ink-300 hover:text-ink-700"
               >
-                {f.original_name}
+                <span className="truncate">{f.original_name}</span>
+                <span className="mt-1 text-[11px] text-ink-400">Download</span>
               </a>
             );
           })}
         </div>
       )}
 
-      {/* Existing admin note when sent back */}
-      {s.status === "needs_revision" && s.admin_comment && (
-        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-rose-600">
-            Sent back with note
+      {/* Existing send-back note */}
+      {isNeedsRevision && submission.admin_comment && (
+        <div className="mt-5 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-rose-600">
+            Sent back for revision
           </div>
-          <p className="mt-1 whitespace-pre-wrap text-sm text-rose-800">
-            {s.admin_comment}
-          </p>
+          {submission.admin_comment}
         </div>
       )}
 
       {/* Actions */}
-      {!isApproved && (
-        <div className="mt-5 border-t border-navy-100 pt-5">
+      {isApproved ? (
+        <div className="mt-6 flex items-center gap-2 border-t border-line pt-5 text-sm font-medium text-emerald-700">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          Approved
+        </div>
+      ) : (
+        <div className="mt-6 border-t border-line pt-5">
           {error && (
-            <p className="mb-3 text-sm font-medium text-rose-600">{error}</p>
+            <div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm text-rose-700">
+              {error}
+            </div>
           )}
 
-          {!sendBackOpen ? (
-            <div className="flex flex-wrap gap-3">
-              <Button
-                variant="primary"
-                onClick={() => review("approve")}
-                disabled={busy !== null}
+          {!showSendBack ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={onApprove}
+                disabled={loading !== null}
+                className="btn-primary"
               >
-                {busy === "approve" ? "Approving…" : "Approve"}
-              </Button>
-              <Button
-                variant="secondary"
-                className="border-rose-200 text-rose-700 hover:bg-rose-50"
+                {loading === "approve" ? (
+                  "Approving…"
+                ) : (
+                  <>
+                    Approve <ArrowRight />
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   setError(null);
-                  setSendBackOpen(true);
+                  setShowSendBack(true);
                 }}
-                disabled={busy !== null}
+                disabled={loading !== null}
+                className="btn-outline text-rose-600 hover:border-rose-300"
               >
                 Send back
-              </Button>
+              </button>
             </div>
           ) : (
             <div className="space-y-3">
-              <label className="label" htmlFor={`comment-${s.id}`}>
-                What should they fix?
-              </label>
               <textarea
-                id={`comment-${s.id}`}
-                className="input min-h-[96px] resize-y"
-                placeholder="Be specific — e.g. include a wider shot and add the date to your memo."
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
+                rows={3}
+                placeholder="What needs to be fixed?"
+                className="input resize-y"
               />
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  variant="secondary"
-                  className={cn(
-                    "border-rose-200 text-rose-700 hover:bg-rose-50",
-                  )}
-                  onClick={() => review("needs_revision")}
-                  disabled={busy !== null}
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={onSendBack}
+                  disabled={loading !== null}
+                  className="btn-outline text-rose-600 hover:border-rose-300"
                 >
-                  {busy === "needs_revision"
+                  {loading === "needs_revision"
                     ? "Sending…"
                     : "Send back for revision"}
-                </Button>
-                <Button
-                  variant="ghost"
+                </button>
+                <button
+                  type="button"
                   onClick={() => {
-                    setSendBackOpen(false);
+                    setShowSendBack(false);
+                    setComment("");
                     setError(null);
                   }}
-                  disabled={busy !== null}
+                  disabled={loading !== null}
+                  className="btn-ghost"
                 >
                   Cancel
-                </Button>
+                </button>
               </div>
             </div>
           )}
         </div>
       )}
-    </article>
+    </div>
   );
 }

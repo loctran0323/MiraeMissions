@@ -1,70 +1,75 @@
-import { redirect } from "next/navigation";
-import { getSessionUser } from "@/lib/auth";
+import { PageHeader } from "@/components/ui";
 import { getAllSubmissionDetails } from "@/lib/queries";
-import { Pill } from "@/components/ui";
 import { ReviewCard } from "./ReviewCard";
 
-// Admin review queue: every submission, awaiting-review items first.
 export default async function ReviewQueuePage() {
-  const user = await getSessionUser();
-  if (!user || user.role !== "admin") redirect("/login");
-
   const subs = await getAllSubmissionDetails();
 
-  // Awaiting review first; otherwise keep newest-activity order from the query.
-  const order = { submitted: 0, needs_revision: 1, approved: 2 } as const;
-  const sorted = [...subs].sort((a, b) => order[a.status] - order[b.status]);
+  const inReview = subs.filter((s) => s.status === "submitted").length;
+  const approved = subs.filter((s) => s.status === "approved").length;
+  const needsRevision = subs.filter((s) => s.status === "needs_revision").length;
 
-  const counts = {
-    submitted: subs.filter((s) => s.status === "submitted").length,
-    approved: subs.filter((s) => s.status === "approved").length,
-    needs_revision: subs.filter((s) => s.status === "needs_revision").length,
+  // Awaiting review first, then everything else (already newest-first from query).
+  const order: Record<string, number> = {
+    submitted: 0,
+    needs_revision: 1,
+    approved: 2,
   };
+  const sorted = [...subs].sort(
+    (a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9),
+  );
+
+  const stats = [
+    { label: "In review", value: inReview, accent: true },
+    { label: "Approved", value: approved },
+    { label: "Needs revision", value: needsRevision },
+  ];
 
   return (
-    <main className="bg-page min-h-screen">
-      <div className="mx-auto max-w-6xl px-5 sm:px-8 py-10">
-        <header className="animate-fade-up">
-          <p className="eyebrow">Admin console</p>
-          <h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight text-navy-900 sm:text-4xl">
-            Review queue
-          </h1>
-          <p className="mt-2 max-w-2xl text-navy-500">
-            Approve completed missions or send them back with a note so interns
-            know exactly what to fix.
-          </p>
+    <main className="min-h-screen bg-white">
+      <div className="container-site py-10 sm:py-12">
+        <div className="animate-fade-up">
+          <PageHeader
+            eyebrow="Administration"
+            title="Review queue"
+            description="Review intern submissions. Approve them, or send them back with feedback."
+          />
+        </div>
 
-          {/* Summary stat pills */}
-          <div className="mt-5 flex flex-wrap gap-2.5">
-            <Pill className="bg-mirae-50 text-mirae-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-mirae" />
-              {counts.submitted} awaiting review
-            </Pill>
-            <Pill className="bg-emerald-50 text-emerald-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              {counts.approved} approved
-            </Pill>
-            <Pill className="bg-rose-50 text-rose-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-              {counts.needs_revision} need revision
-            </Pill>
-          </div>
-        </header>
-
-        <section className="mt-8 space-y-5">
-          {sorted.length === 0 ? (
-            <div className="card flex flex-col items-center justify-center gap-2 py-16 text-center">
-              <p className="font-display text-lg font-bold text-navy-900">
-                Nothing to review yet
-              </p>
-              <p className="text-sm text-navy-500">
-                Submissions will appear here as interns complete their missions.
-              </p>
+        <div className="mt-8 grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-line bg-line animate-fade-up">
+          {stats.map((s) => (
+            <div key={s.label} className="bg-white px-5 py-5">
+              <div
+                className={
+                  "font-display text-3xl font-bold tracking-tightest " +
+                  (s.accent ? "text-mirae" : "text-ink-900")
+                }
+              >
+                {s.value}
+              </div>
+              <div className="mt-1 text-xs font-medium uppercase tracking-wide text-ink-400">
+                {s.label}
+              </div>
             </div>
-          ) : (
-            sorted.map((s) => <ReviewCard key={s.id} submission={s} />)
-          )}
-        </section>
+          ))}
+        </div>
+
+        {sorted.length === 0 ? (
+          <div className="mt-8 rounded-lg border border-dashed border-line bg-ink-50 px-6 py-16 text-center animate-fade-up">
+            <p className="font-display text-lg font-semibold text-ink-900">
+              Nothing to review yet
+            </p>
+            <p className="mt-1 text-sm text-ink-500">
+              Submissions from interns will appear here as they come in.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-8 space-y-4 animate-fade-up">
+            {sorted.map((s) => (
+              <ReviewCard key={s.id} submission={s} />
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );

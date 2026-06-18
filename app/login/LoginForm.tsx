@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ArrowRight } from "@/components/ui";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -20,47 +21,42 @@ export function LoginForm() {
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
-      if (res.ok && data.ok) {
-        window.location.href = data.redirect ?? "/dashboard";
+      if (!res.ok) {
+        setError(data.error || "Unable to sign in.");
+        setLoading(false);
         return;
       }
-      setError(data.error ?? "Something went wrong. Please try again.");
+      window.location.href = data.redirect || "/dashboard";
     } catch {
-      setError("Network error. Please try again.");
-    } finally {
+      setError("Something went wrong. Please try again.");
       setLoading(false);
     }
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-5">
       {error && (
-        <div
-          role="alert"
-          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"
-        >
+        <div className="rounded-md border border-rose-200 bg-rose-50 px-3.5 py-3 text-sm text-rose-700">
           {error}
         </div>
       )}
-
       <div>
-        <label htmlFor="email" className="label">
-          Email
+        <label className="label" htmlFor="email">
+          Email address
         </label>
         <input
           id="email"
           type="email"
           autoComplete="email"
           required
+          className="input"
+          placeholder="you@miraeasset.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@miraeasset.com"
-          className="input"
         />
       </div>
-
       <div>
-        <label htmlFor="password" className="label">
+        <label className="label" htmlFor="password">
           Password
         </label>
         <input
@@ -68,28 +64,30 @@ export function LoginForm() {
           type="password"
           autoComplete="current-password"
           required
+          className="input"
+          placeholder="••••••••"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••••"
-          className="input"
         />
       </div>
-
       <button type="submit" disabled={loading} className="btn-primary w-full py-3">
-        {loading ? "Signing in…" : "Sign in"}
+        {loading ? "Signing in…" : <>Sign in <ArrowRight /></>}
       </button>
 
-      <div className="rounded-xl border border-navy-100 bg-sand-100 px-4 py-3 text-xs text-navy-500">
-        <span className="font-semibold text-navy-600">Demo admin</span> ·
-        admin@miraeasset.com / admin1234
-      </div>
-
-      <p className="text-center text-sm text-navy-400">
-        No account yet?{" "}
+      <p className="text-center text-sm text-ink-500">
+        Don&rsquo;t have access yet?{" "}
         <Link href="/request-access" className="font-semibold text-mirae hover:text-mirae-600">
           Request access
         </Link>
       </p>
+
+      <div className="rounded-md border border-line bg-ink-50 px-3.5 py-3 text-xs leading-relaxed text-ink-500">
+        <span className="font-semibold text-ink-700">Demo accounts</span>
+        <br />
+        Admin — admin@miraeasset.com / admin1234
+        <br />
+        Intern — loc@miraeasset.com / intern1234
+      </div>
     </form>
   );
 }

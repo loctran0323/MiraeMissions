@@ -1,52 +1,84 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { getMissionsWithState } from "@/lib/queries";
-import { ProgressBar } from "@/components/ui";
-import { MissionCard } from "./MissionCard";
+import { PageHeader, ProgressBar } from "@/components/ui";
+import MissionCard from "./MissionCard";
 
-// Intern missions board.
 export default async function DashboardPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const missions = await getMissionsWithState(user.id);
-  const total = missions.length;
+
   const approvedCount = missions.filter((m) => m.state === "approved").length;
-  const firstName = user.name.split(" ")[0];
+  const submittedCount = missions.filter((m) => m.state === "submitted").length;
+  const notStartedCount = missions.filter(
+    (m) => m.state === "not_started",
+  ).length;
+
+  const stats = [
+    { label: "Approved", value: approvedCount },
+    { label: "In review", value: submittedCount },
+    { label: "Not started", value: notStartedCount },
+  ];
 
   return (
-    <main className="bg-page min-h-screen">
-      <div className="mx-auto max-w-6xl px-5 sm:px-8 py-10">
-        {/* Hero */}
-        <section className="bg-hero-glow animate-fade-up rounded-3xl border border-navy-100 px-7 py-12 sm:px-12 sm:py-14">
-          <p className="eyebrow">Welcome back, {firstName}</p>
-          <h1 className="mt-3 font-display text-4xl font-bold tracking-tight text-navy-900 sm:text-5xl">
-            2026 Summer Missions
-          </h1>
-          <p className="mt-3 max-w-xl text-base text-navy-500">
-            Complete each mission and upload your deliverable.
-          </p>
-
-          {/* Progress */}
-          <div className="card mt-8 max-w-md p-5">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-semibold text-navy-900">
-                {approvedCount} of {total} reviewed
+    <main className="min-h-screen bg-white">
+      <div className="container-site py-10 sm:py-12">
+        <PageHeader
+          eyebrow="2026 Summer Missions"
+          title={`Welcome back, ${user.name.split(" ")[0]}`}
+          description="Complete each mission and submit your proof for review."
+        >
+          <div className="w-[14rem]">
+            <div className="flex items-baseline justify-between">
+              <span className="font-display text-2xl font-bold text-ink-900">
+                {approvedCount}
+                <span className="text-ink-300"> / {missions.length}</span>
               </span>
-              <span className="text-navy-400">
-                {total > 0 ? Math.round((approvedCount / total) * 100) : 0}%
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                Approved
               </span>
             </div>
-            <ProgressBar value={approvedCount} max={total} className="mt-3" />
+            <ProgressBar
+              value={approvedCount}
+              max={missions.length}
+              className="mt-3"
+            />
           </div>
-        </section>
+        </PageHeader>
 
-        {/* Missions grid */}
-        <section className="mt-10 grid animate-fade-up grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {missions.map((mission) => (
-            <MissionCard key={mission.id} mission={mission} />
-          ))}
-        </section>
+        <div className="animate-fade-up">
+          <div className="mt-8 grid grid-cols-3 divide-x divide-line overflow-hidden rounded-lg border border-line">
+            {stats.map((s) => (
+              <div key={s.label} className="px-5 py-4">
+                <div className="font-display text-2xl font-bold text-ink-900">
+                  {s.value}
+                </div>
+                <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                  {s.label}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {missions.length === 0 ? (
+            <div className="mt-8 rounded-lg border border-line bg-white px-6 py-16 text-center">
+              <p className="font-display text-lg font-semibold text-ink-900">
+                No missions yet
+              </p>
+              <p className="mt-2 text-sm text-ink-500">
+                Missions will appear here once they are published.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-8 divide-y divide-line overflow-hidden rounded-lg border border-line bg-white">
+              {missions.map((m, i) => (
+                <MissionCard key={m.id} mission={m} index={i} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </main>
   );

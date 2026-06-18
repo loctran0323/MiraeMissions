@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { TopNav } from "@/components/TopNav";
 
-// Authed intern shell — wraps /dashboard, /peer and /missions/[slug].
 export default async function InternLayout({
   children,
 }: {

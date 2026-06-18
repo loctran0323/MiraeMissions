@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ArrowRight } from "@/components/ui";
 
 export function RequestForm() {
   const [name, setName] = useState("");
@@ -22,40 +23,43 @@ export function RequestForm() {
         body: JSON.stringify({ name, email, password }),
       });
       const data = await res.json();
-      if (res.ok && data.ok) {
-        setDone(true);
+      if (!res.ok) {
+        setError(data.error || "Unable to submit request.");
+        setLoading(false);
         return;
       }
-      setError(data.error ?? "Something went wrong. Please try again.");
+      setDone(true);
     } catch {
-      setError("Network error. Please try again.");
-    } finally {
+      setError("Something went wrong. Please try again.");
       setLoading(false);
     }
   }
 
   if (done) {
     return (
-      <div className="text-center">
-        <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-50 text-emerald-600">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <div className="space-y-5">
+        <div className="grid h-12 w-12 place-items-center rounded-md bg-emerald-50 text-emerald-600">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
             <path
-              d="m5 13 4 4L19 7"
+              d="M5 13l4 4L19 7"
               stroke="currentColor"
-              strokeWidth="2.4"
+              strokeWidth="2.2"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           </svg>
         </div>
-        <h2 className="mt-4 font-display text-lg font-bold text-navy-900">
-          Request submitted
-        </h2>
-        <p className="mt-1.5 text-sm text-navy-400">
-          An admin will approve your account. You&apos;ll be able to sign in once it&apos;s
-          approved.
-        </p>
-        <Link href="/login" className="btn-secondary mt-6 w-full py-3">
+        <div>
+          <h2 className="font-display text-lg font-semibold text-ink-900">
+            Request submitted
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-ink-500">
+            Thanks, {name.split(" ")[0] || "there"}. An administrator will review
+            and approve your account. You&rsquo;ll be able to sign in once
+            approved.
+          </p>
+        </div>
+        <Link href="/login" className="btn-outline w-full py-3">
           Back to sign in
         </Link>
       </div>
@@ -63,70 +67,59 @@ export function RequestForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-5">
       {error && (
-        <div
-          role="alert"
-          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"
-        >
+        <div className="rounded-md border border-rose-200 bg-rose-50 px-3.5 py-3 text-sm text-rose-700">
           {error}
         </div>
       )}
-
       <div>
-        <label htmlFor="name" className="label">
+        <label className="label" htmlFor="name">
           Full name
         </label>
         <input
           id="name"
-          type="text"
-          autoComplete="name"
           required
+          className="input"
+          placeholder="Jane Intern"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Jane Intern"
-          className="input"
         />
       </div>
-
       <div>
-        <label htmlFor="email" className="label">
-          Email
+        <label className="label" htmlFor="email">
+          Email address
         </label>
         <input
           id="email"
           type="email"
-          autoComplete="email"
           required
+          className="input"
+          placeholder="you@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@miraeasset.com"
-          className="input"
         />
       </div>
-
       <div>
-        <label htmlFor="password" className="label">
+        <label className="label" htmlFor="password">
           Password
         </label>
         <input
           id="password"
           type="password"
-          autoComplete="new-password"
           required
           minLength={6}
+          className="input"
+          placeholder="At least 6 characters"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="At least 6 characters"
-          className="input"
         />
       </div>
-
       <button type="submit" disabled={loading} className="btn-primary w-full py-3">
-        {loading ? "Submitting…" : "Request access"}
+        {loading ? "Submitting…" : <>Request access <ArrowRight /></>}
       </button>
 
-      <p className="text-center text-sm text-navy-400">
+      <p className="text-center text-sm text-ink-500">
         Already approved?{" "}
         <Link href="/login" className="font-semibold text-mirae hover:text-mirae-600">
           Sign in

@@ -1,4 +1,7 @@
-import "dotenv/config";
+import { config } from "dotenv";
+// Load .env.local first (Next's convention), then fall back to .env.
+config({ path: ".env.local" });
+config();
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { MISSION_SEEDS } from "../lib/missions-data";

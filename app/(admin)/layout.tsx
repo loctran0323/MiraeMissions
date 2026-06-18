@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { TopNav } from "@/components/TopNav";
 
-// Admin shell: gate on session + role, then render the admin nav + page.
 export default async function AdminLayout({
   children,
 }: {

@@ -7,7 +7,7 @@ export function cn(...parts: Array<string | false | null | undefined>): string {
 
 /* ------------------------------- Button ------------------------------- */
 
-type ButtonVariant = "primary" | "secondary" | "ghost";
+type ButtonVariant = "primary" | "dark" | "outline" | "ghost";
 
 export function Button({
   variant = "primary",
@@ -16,17 +16,41 @@ export function Button({
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
   const styles: Record<ButtonVariant, string> = {
     primary: "btn-primary",
-    secondary: "btn-secondary",
+    dark: "btn-dark",
+    outline: "btn-outline",
     ghost: "btn-ghost",
   };
   return <button className={cn(styles[variant], className)} {...props} />;
+}
+
+/* ------------------------------- Arrow -------------------------------- */
+
+export function ArrowRight({ className }: { className?: string }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      className={className}
+      aria-hidden
+    >
+      <path
+        d="M5 12h14m0 0l-6-6m6 6l-6 6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 }
 
 /* -------------------------------- Avatar ------------------------------ */
 
 export function Avatar({
   name,
-  size = 40,
+  size = 36,
   className,
 }: {
   name: string;
@@ -43,7 +67,7 @@ export function Avatar({
   return (
     <span
       className={cn(
-        "grid place-items-center rounded-full bg-mirae-gradient font-display font-bold text-white shadow-glow",
+        "grid shrink-0 place-items-center rounded-md bg-ink-900 font-display font-semibold text-white",
         className,
       )}
       style={{ width: size, height: size, fontSize: size * 0.36 }}
@@ -66,9 +90,9 @@ export function ProgressBar({
 }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
-    <div className={cn("h-2 w-full overflow-hidden rounded-full bg-navy-100", className)}>
+    <div className={cn("h-1.5 w-full overflow-hidden rounded-full bg-ink-100", className)}>
       <div
-        className="h-full rounded-full bg-mirae-gradient transition-all duration-700"
+        className="h-full rounded-full bg-mirae transition-all duration-700"
         style={{ width: `${pct}%` }}
       />
     </div>
@@ -80,22 +104,22 @@ export function ProgressBar({
 const STATE_STYLES: Record<MissionState, { label: string; cls: string; dot: string }> = {
   not_started: {
     label: "Not started",
-    cls: "bg-navy-50 text-navy-500 border-navy-100",
-    dot: "bg-navy-300",
+    cls: "bg-ink-50 text-ink-500 border-line",
+    dot: "bg-ink-300",
   },
   submitted: {
-    label: "Submitted",
-    cls: "bg-mirae-50 text-mirae-700 border-mirae-200",
+    label: "In review",
+    cls: "bg-mirae-50 text-mirae-700 border-mirae-100",
     dot: "bg-mirae",
   },
   approved: {
     label: "Approved",
-    cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    cls: "bg-emerald-50 text-emerald-700 border-emerald-100",
     dot: "bg-emerald-500",
   },
   needs_revision: {
     label: "Needs revision",
-    cls: "bg-rose-50 text-rose-700 border-rose-200",
+    cls: "bg-rose-50 text-rose-700 border-rose-100",
     dot: "bg-rose-500",
   },
 };
@@ -111,7 +135,7 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold",
+        "inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
         s.cls,
         className,
       )}
@@ -122,7 +146,6 @@ export function StatusBadge({
   );
 }
 
-// Map a SubmissionStatus to the equivalent MissionState badge.
 export function SubmissionStatusBadge({
   status,
   className,
@@ -150,11 +173,40 @@ export function Pill({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full bg-navy-50 px-3 py-1 text-xs font-medium text-navy-600",
+        "inline-flex items-center gap-1.5 rounded border border-line bg-white px-2 py-0.5 text-[11px] font-medium text-ink-500",
         className,
       )}
     >
       {children}
     </span>
+  );
+}
+
+/* --------------------------- Page section head ------------------------ */
+
+export function PageHeader({
+  eyebrow,
+  title,
+  description,
+  children,
+}: {
+  eyebrow?: string;
+  title: string;
+  description?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-4 border-b border-line pb-8 sm:flex-row sm:items-end sm:justify-between">
+      <div className="max-w-2xl">
+        {eyebrow && <span className="eyebrow mb-3">{eyebrow}</span>}
+        <h1 className="font-display text-3xl font-bold tracking-tightest text-ink-900 sm:text-4xl">
+          {title}
+        </h1>
+        {description && (
+          <p className="mt-3 text-[15px] leading-relaxed text-ink-500">{description}</p>
+        )}
+      </div>
+      {children && <div className="shrink-0">{children}</div>}
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { Inter, Inter_Tight } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -8,7 +8,8 @@ const inter = Inter({
   display: "swap",
 });
 
-const display = Plus_Jakarta_Sans({
+// Tighter grotesque for editorial corporate headlines.
+const display = Inter_Tight({
   subsets: ["latin"],
   weight: ["500", "600", "700", "800"],
   variable: "--font-display",
@@ -16,9 +17,9 @@ const display = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Mirae Asset · Summer Missions",
+  title: "Mirae Asset Securities · Summer Missions",
   description:
-    "The 2026 Summer Missions program for Mirae Asset Securities interns.",
+    "The 2026 Summer Internship Missions program at Mirae Asset Securities.",
 };
 
 export default function RootLayout({
@@ -28,7 +29,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${display.variable}`}>
-      <body className="font-sans text-ink antialiased">{children}</body>
+      <body className="bg-white font-sans text-ink-900 antialiased">
+        {children}
+      </body>
     </html>
   );
 }

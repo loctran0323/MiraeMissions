@@ -1,37 +1,34 @@
 import type { InternProgress } from "@/lib/types";
-import { Avatar, Pill, ProgressBar, SubmissionStatusBadge } from "@/components/ui";
+import { Avatar, ProgressBar, SubmissionStatusBadge } from "@/components/ui";
 
-// Privacy-safe peer summary card — no submission contents revealed.
-export function PeerCard({ entry }: { entry: InternProgress }) {
+export default function PeerCard({ entry }: { entry: InternProgress }) {
   const { user, approvedCount, totalMissions, latest } = entry;
 
   return (
-    <div className="card flex h-full flex-col gap-5 p-6 transition hover:-translate-y-0.5 hover:shadow-lift">
-      <div className="flex items-center gap-3">
-        <Avatar name={user.name} size={44} />
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-display font-semibold text-navy-900">
-            {user.name}
+    <div className="card p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <Avatar name={user.name} size={40} />
+          <div className="min-w-0">
+            <div className="truncate font-semibold text-ink-900">
+              {user.name}
+            </div>
+            <div className="truncate text-xs text-ink-400">{user.email}</div>
           </div>
-          <div className="truncate text-sm text-navy-400">{user.email}</div>
         </div>
-        <Pill>
-          {approvedCount}/{totalMissions} reviewed
-        </Pill>
+        <span className="shrink-0 font-display text-sm font-bold text-ink-900">
+          {approvedCount}
+          <span className="text-ink-300">/{totalMissions}</span>
+        </span>
       </div>
 
-      <ProgressBar value={approvedCount} max={totalMissions} />
+      <ProgressBar value={approvedCount} max={totalMissions} className="mt-4" />
 
       {latest && (
-        <div className="flex items-center justify-between gap-3 border-t border-navy-100 pt-4">
-          <div className="min-w-0">
-            <div className="text-xs font-medium uppercase tracking-wide text-navy-400">
-              Latest mission
-            </div>
-            <div className="truncate text-sm font-medium text-navy-700">
-              {latest.missionTitle}
-            </div>
-          </div>
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-4">
+          <span className="truncate text-sm text-ink-600">
+            {latest.missionTitle}
+          </span>
           <SubmissionStatusBadge status={latest.status} />
         </div>
       )}

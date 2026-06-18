@@ -1,28 +1,40 @@
+import { redirect } from "next/navigation";
+import { getSessionUser } from "@/lib/auth";
 import { getInternProgress } from "@/lib/queries";
-import { PeerCard } from "./PeerCard";
+import { PageHeader } from "@/components/ui";
+import PeerCard from "./PeerCard";
 
-// Peer progress overview — aggregate stats only, submissions stay private.
 export default async function PeerPage() {
+  const user = await getSessionUser();
+  if (!user) redirect("/login");
+
   const peers = await getInternProgress();
 
   return (
-    <main className="bg-page min-h-screen">
-      <div className="mx-auto max-w-6xl px-5 sm:px-8 py-10">
-        <header className="animate-fade-up">
-          <h1 className="font-display text-3xl font-bold tracking-tight text-navy-900 sm:text-4xl">
-            Peer progress
-          </h1>
-          <p className="mt-3 max-w-2xl text-base text-navy-500">
-            See how your fellow interns are progressing through the missions.
-            Submission details remain private.
-          </p>
-        </header>
+    <main className="min-h-screen bg-white">
+      <div className="container-site py-10 sm:py-12">
+        <PageHeader
+          eyebrow="Cohort"
+          title="Peer progress"
+          description="See how your fellow interns are progressing. Submission details stay private."
+        />
 
-        <section className="mt-8 grid animate-fade-up grid-cols-1 gap-5 sm:grid-cols-2">
-          {peers.map((entry) => (
-            <PeerCard key={entry.user.id} entry={entry} />
-          ))}
-        </section>
+        {peers.length === 0 ? (
+          <div className="mt-8 rounded-lg border border-line bg-white px-6 py-16 text-center animate-fade-up">
+            <p className="font-display text-lg font-semibold text-ink-900">
+              No interns yet
+            </p>
+            <p className="mt-2 text-sm text-ink-500">
+              Your cohort will appear here as members are approved.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-8 grid gap-4 animate-fade-up sm:grid-cols-2 lg:grid-cols-3">
+            {peers.map((p) => (
+              <PeerCard key={p.user.id} entry={p} />
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );
