@@ -9,7 +9,7 @@ export default async function ReviewQueuePage() {
   const user = await getSessionUser();
   if (!user || user.role !== "admin") redirect("/login");
 
-  const subs = getAllSubmissionDetails();
+  const subs = await getAllSubmissionDetails();
 
   // Awaiting review first; otherwise keep newest-activity order from the query.
   const order = { submitted: 0, needs_revision: 1, approved: 2 } as const;

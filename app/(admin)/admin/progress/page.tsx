@@ -19,7 +19,7 @@ export default async function ProgressPage() {
   const user = await getSessionUser();
   if (!user || user.role !== "admin") redirect("/login");
 
-  const interns = getInternProgress();
+  const interns = await getInternProgress();
   const totalMissions = interns[0]?.totalMissions ?? 0;
 
   // Aggregate completion across the whole cohort.

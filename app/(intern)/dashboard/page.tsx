@@ -9,7 +9,7 @@ export default async function DashboardPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  const missions = getMissionsWithState(user.id);
+  const missions = await getMissionsWithState(user.id);
   const total = missions.length;
   const approvedCount = missions.filter((m) => m.state === "approved").length;
   const firstName = user.name.split(" ")[0];

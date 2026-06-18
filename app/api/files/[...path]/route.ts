@@ -1,10 +1,9 @@
-import fs from "node:fs";
 import { getSessionUser } from "@/lib/auth";
 import { getSubmissionById } from "@/lib/queries";
-import { resolveUpload } from "@/lib/uploads";
+import { downloadUpload } from "@/lib/uploads";
 
-// Guarded file server for uploaded proof. Files live outside /public; only the
-// submission's owner (or an admin) may read them.
+// Guarded file server for uploaded proof. Objects live in a private Storage
+// bucket; only the submission's owner (or an admin) may read them.
 
 const CONTENT_TYPES: Record<string, string> = {
   jpg: "image/jpeg",
@@ -31,7 +30,7 @@ export async function GET(
   const user = await getSessionUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
-  const rel = params.path.join("/");
+  const key = params.path.join("/");
 
   // The first path segment is the owning submission id.
   const submissionId = Number.parseInt(params.path[0] ?? "", 10);
@@ -39,7 +38,7 @@ export async function GET(
     return new Response("Not found", { status: 404 });
   }
 
-  const submission = getSubmissionById(submissionId);
+  const submission = await getSubmissionById(submissionId);
   if (!submission) return new Response("Not found", { status: 404 });
 
   // Owner or admin only.
@@ -47,13 +46,13 @@ export async function GET(
     return new Response("Forbidden", { status: 403 });
   }
 
-  const abs = resolveUpload(rel);
-  if (!abs) return new Response("Not found", { status: 404 });
+  const blob = await downloadUpload(key);
+  if (!blob) return new Response("Not found", { status: 404 });
 
-  const buffer = fs.readFileSync(abs);
+  const buffer = Buffer.from(await blob.arrayBuffer());
   return new Response(buffer, {
     headers: {
-      "Content-Type": contentTypeFor(rel),
+      "Content-Type": contentTypeFor(key),
       "Content-Length": String(buffer.byteLength),
       "Cache-Control": "private, max-age=3600",
     },

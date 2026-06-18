@@ -22,6 +22,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  setUserStatus(userId, action === "approve" ? "approved" : "rejected");
+  await setUserStatus(userId, action === "approve" ? "approved" : "rejected");
   return NextResponse.json({ ok: true });
 }

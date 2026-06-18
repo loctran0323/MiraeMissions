@@ -74,7 +74,7 @@ export default async function MissionDetailPage({
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  const m = getMissionWithState(user.id, params.slug);
+  const m = await getMissionWithState(user.id, params.slug);
   if (!m) notFound();
 
   const sub = m.submission;

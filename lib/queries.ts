@@ -1,10 +1,11 @@
 import "server-only";
-import { getDb } from "./db";
+import { sb, must } from "./supabase";
 import type {
   InternProgress,
   Mission,
   MissionState,
   MissionWithState,
+  Role,
   Submission,
   SubmissionDetail,
   SubmissionFile,
@@ -14,16 +15,16 @@ import type {
 
 /* ------------------------------ Missions ------------------------------ */
 
-export function getAllMissions(): Mission[] {
-  return getDb()
-    .prepare("SELECT * FROM missions ORDER BY sort_order ASC")
-    .all() as Mission[];
+export async function getAllMissions(): Promise<Mission[]> {
+  return must(
+    await sb.from("missions").select("*").order("sort_order", { ascending: true }),
+  ) as Mission[];
 }
 
-export function getMissionBySlug(slug: string): Mission | null {
-  return (getDb()
-    .prepare("SELECT * FROM missions WHERE slug = ?")
-    .get(slug) as Mission) ?? null;
+export async function getMissionBySlug(slug: string): Promise<Mission | null> {
+  return (must(
+    await sb.from("missions").select("*").eq("slug", slug).maybeSingle(),
+  ) as Mission | null) ?? null;
 }
 
 function stateFromSubmission(sub?: Submission): MissionState {
@@ -31,40 +32,62 @@ function stateFromSubmission(sub?: Submission): MissionState {
   return sub.status as MissionState;
 }
 
-function filesFor(submissionId: number): SubmissionFile[] {
-  return getDb()
-    .prepare("SELECT * FROM submission_files WHERE submission_id = ?")
-    .all(submissionId) as SubmissionFile[];
+async function filesFor(submissionId: number): Promise<SubmissionFile[]> {
+  return must(
+    await sb.from("submission_files").select("*").eq("submission_id", submissionId),
+  ) as SubmissionFile[];
 }
 
 /** Missions joined with a given intern's submission state. */
-export function getMissionsWithState(userId: number): MissionWithState[] {
-  const missions = getAllMissions();
+export async function getMissionsWithState(
+  userId: number,
+): Promise<MissionWithState[]> {
+  const missions = await getAllMissions();
+  const submissions = must(
+    await sb.from("submissions").select("*").eq("user_id", userId),
+  ) as Submission[];
+
+  const subIds = submissions.map((s) => s.id);
+  const filesBySub = new Map<number, SubmissionFile[]>();
+  if (subIds.length) {
+    const files = must(
+      await sb.from("submission_files").select("*").in("submission_id", subIds),
+    ) as SubmissionFile[];
+    for (const f of files) {
+      const arr = filesBySub.get(f.submission_id) ?? [];
+      arr.push(f);
+      filesBySub.set(f.submission_id, arr);
+    }
+  }
+
   return missions.map((m) => {
-    const sub = getDb()
-      .prepare("SELECT * FROM submissions WHERE user_id = ? AND mission_id = ?")
-      .get(userId, m.id) as Submission | undefined;
+    const sub = submissions.find((s) => s.mission_id === m.id);
     return {
       ...m,
       state: stateFromSubmission(sub),
-      submission: sub ? { ...sub, files: filesFor(sub.id) } : undefined,
+      submission: sub ? { ...sub, files: filesBySub.get(sub.id) ?? [] } : undefined,
     };
   });
 }
 
-export function getMissionWithState(
+export async function getMissionWithState(
   userId: number,
   slug: string,
-): MissionWithState | null {
-  const m = getMissionBySlug(slug);
+): Promise<MissionWithState | null> {
+  const m = await getMissionBySlug(slug);
   if (!m) return null;
-  const sub = getDb()
-    .prepare("SELECT * FROM submissions WHERE user_id = ? AND mission_id = ?")
-    .get(userId, m.id) as Submission | undefined;
+  const sub = (must(
+    await sb
+      .from("submissions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("mission_id", m.id)
+      .maybeSingle(),
+  ) as Submission | null) ?? undefined;
   return {
     ...m,
     state: stateFromSubmission(sub),
-    submission: sub ? { ...sub, files: filesFor(sub.id) } : undefined,
+    submission: sub ? { ...sub, files: await filesFor(sub.id) } : undefined,
   };
 }
 
@@ -74,148 +97,241 @@ export function getMissionWithState(
  * Creates a submission (or resubmits an existing one), setting status back to
  * 'submitted'. Returns the submission id so the caller can attach files.
  */
-export function upsertSubmission(
+export async function upsertSubmission(
   userId: number,
   missionId: number,
   memo: string | null,
-): number {
-  const db = getDb();
-  const existing = db
-    .prepare("SELECT * FROM submissions WHERE user_id = ? AND mission_id = ?")
-    .get(userId, missionId) as Submission | undefined;
+): Promise<number> {
+  const existing = (must(
+    await sb
+      .from("submissions")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("mission_id", missionId)
+      .maybeSingle(),
+  ) as { id: number } | null);
 
   if (existing) {
-    db.prepare(
-      `UPDATE submissions
-       SET status = 'submitted', memo = ?, admin_comment = NULL,
-           updated_at = datetime('now'), reviewed_at = NULL
-       WHERE id = ?`,
-    ).run(memo, existing.id);
+    must(
+      await sb
+        .from("submissions")
+        .update({
+          status: "submitted",
+          memo,
+          admin_comment: null,
+          updated_at: new Date().toISOString(),
+          reviewed_at: null,
+        })
+        .eq("id", existing.id),
+    );
     return existing.id;
   }
 
-  const res = db
-    .prepare(
-      `INSERT INTO submissions (user_id, mission_id, status, memo)
-       VALUES (?, ?, 'submitted', ?)`,
-    )
-    .run(userId, missionId, memo);
-  return Number(res.lastInsertRowid);
+  const created = must(
+    await sb
+      .from("submissions")
+      .insert({ user_id: userId, mission_id: missionId, status: "submitted", memo })
+      .select("id")
+      .single(),
+  ) as { id: number };
+  return created.id;
 }
 
-export function addSubmissionFile(
+export async function addSubmissionFile(
   submissionId: number,
   f: { path: string; original_name: string; mime_type: string; kind: string },
-): void {
-  getDb()
-    .prepare(
-      `INSERT INTO submission_files (submission_id, path, original_name, mime_type, kind)
-       VALUES (?, ?, ?, ?, ?)`,
-    )
-    .run(submissionId, f.path, f.original_name, f.mime_type, f.kind);
+): Promise<void> {
+  must(
+    await sb.from("submission_files").insert({ submission_id: submissionId, ...f }),
+  );
 }
 
-export function getSubmissionById(id: number): Submission | null {
-  return (getDb()
-    .prepare("SELECT * FROM submissions WHERE id = ?")
-    .get(id) as Submission) ?? null;
+export async function getSubmissionById(id: number): Promise<Submission | null> {
+  return (must(
+    await sb.from("submissions").select("*").eq("id", id).maybeSingle(),
+  ) as Submission | null) ?? null;
 }
 
 /** Admin review action: approve, or send back with a required comment. */
-export function reviewSubmission(
+export async function reviewSubmission(
   submissionId: number,
   status: Exclude<SubmissionStatus, "submitted">,
   comment: string | null,
-): void {
-  getDb()
-    .prepare(
-      `UPDATE submissions
-       SET status = ?, admin_comment = ?, reviewed_at = datetime('now'),
-           updated_at = datetime('now')
-       WHERE id = ?`,
-    )
-    .run(status, comment, submissionId);
+): Promise<void> {
+  const now = new Date().toISOString();
+  must(
+    await sb
+      .from("submissions")
+      .update({
+        status,
+        admin_comment: comment,
+        reviewed_at: now,
+        updated_at: now,
+      })
+      .eq("id", submissionId),
+  );
 }
 
-function hydrateDetail(sub: Submission): SubmissionDetail {
-  const db = getDb();
-  const user = db
-    .prepare("SELECT id, name, email FROM users WHERE id = ?")
-    .get(sub.user_id) as Pick<User, "id" | "name" | "email">;
-  const mission = db
-    .prepare("SELECT id, title, slug, deliverable_type FROM missions WHERE id = ?")
-    .get(sub.mission_id) as SubmissionDetail["mission"];
-  return { ...sub, files: filesFor(sub.id), user, mission };
+async function hydrateDetail(sub: Submission): Promise<SubmissionDetail> {
+  const user = must(
+    await sb.from("users").select("id, name, email").eq("id", sub.user_id).single(),
+  ) as Pick<User, "id" | "name" | "email">;
+  const mission = must(
+    await sb
+      .from("missions")
+      .select("id, title, slug, deliverable_type")
+      .eq("id", sub.mission_id)
+      .single(),
+  ) as SubmissionDetail["mission"];
+  return { ...sub, files: await filesFor(sub.id), user, mission };
 }
 
 /** All submissions across all interns (admin queue), newest activity first. */
-export function getAllSubmissionDetails(): SubmissionDetail[] {
-  const subs = getDb()
-    .prepare("SELECT * FROM submissions ORDER BY updated_at DESC")
-    .all() as Submission[];
-  return subs.map(hydrateDetail);
+export async function getAllSubmissionDetails(): Promise<SubmissionDetail[]> {
+  const subs = must(
+    await sb.from("submissions").select("*").order("updated_at", { ascending: false }),
+  ) as Submission[];
+  return Promise.all(subs.map(hydrateDetail));
 }
 
-export function getSubmissionDetail(id: number): SubmissionDetail | null {
-  const sub = getSubmissionById(id);
+export async function getSubmissionDetail(
+  id: number,
+): Promise<SubmissionDetail | null> {
+  const sub = await getSubmissionById(id);
   return sub ? hydrateDetail(sub) : null;
 }
 
 /* ------------------------------ Progress ------------------------------ */
 
 /** Per-intern progress for the peer-progress + admin overview pages. */
-export function getInternProgress(): InternProgress[] {
-  const db = getDb();
-  const total = (db.prepare("SELECT COUNT(*) AS c FROM missions").get() as { c: number }).c;
-  const interns = db
-    .prepare(
-      "SELECT id, name, email FROM users WHERE role = 'intern' AND status = 'approved' ORDER BY name ASC",
-    )
-    .all() as Pick<User, "id" | "name" | "email">[];
+export async function getInternProgress(): Promise<InternProgress[]> {
+  const totalCount =
+    (
+      await sb.from("missions").select("id", { count: "exact", head: true })
+    ).count ?? 0;
 
-  return interns.map((u) => {
-    const approvedCount = (db
-      .prepare(
-        "SELECT COUNT(*) AS c FROM submissions WHERE user_id = ? AND status = 'approved'",
-      )
-      .get(u.id) as { c: number }).c;
+  const interns = must(
+    await sb
+      .from("users")
+      .select("id, name, email")
+      .eq("role", "intern")
+      .eq("status", "approved")
+      .order("name", { ascending: true }),
+  ) as Pick<User, "id" | "name" | "email">[];
 
-    const latest = db
-      .prepare(
-        `SELECT m.title AS missionTitle, s.status AS status, s.updated_at AS updated_at
-         FROM submissions s JOIN missions m ON m.id = s.mission_id
-         WHERE s.user_id = ? ORDER BY s.updated_at DESC LIMIT 1`,
-      )
-      .get(u.id) as InternProgress["latest"] | undefined;
+  return Promise.all(
+    interns.map(async (u) => {
+      const approvedCount =
+        (
+          await sb
+            .from("submissions")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", u.id)
+            .eq("status", "approved")
+        ).count ?? 0;
 
-    return { user: u, approvedCount, totalMissions: total, latest };
-  });
+      const latestRows = must(
+        await sb
+          .from("submissions")
+          .select("updated_at, status, missions(title)")
+          .eq("user_id", u.id)
+          .order("updated_at", { ascending: false })
+          .limit(1),
+      ) as Array<{
+        updated_at: string;
+        status: SubmissionStatus;
+        missions: { title: string } | { title: string }[] | null;
+      }>;
+
+      const row = latestRows[0];
+      const missionRel = Array.isArray(row?.missions) ? row?.missions[0] : row?.missions;
+      const latest = row
+        ? {
+            missionTitle: missionRel?.title ?? "",
+            status: row.status,
+            updated_at: row.updated_at,
+          }
+        : undefined;
+
+      return { user: u, approvedCount, totalMissions: totalCount, latest };
+    }),
+  );
 }
 
 /* -------------------------- Account approval -------------------------- */
 
-export function getUsers(filter?: { status?: string; role?: string }): User[] {
-  const clauses: string[] = [];
-  const params: Record<string, string> = {};
-  if (filter?.status) {
-    clauses.push("status = @status");
-    params.status = filter.status;
-  }
-  if (filter?.role) {
-    clauses.push("role = @role");
-    params.role = filter.role;
-  }
-  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-  return getDb()
-    .prepare(
-      `SELECT id, name, email, role, status, created_at FROM users ${where} ORDER BY created_at DESC`,
-    )
-    .all(params) as User[];
+export async function getUsers(filter?: {
+  status?: string;
+  role?: string;
+}): Promise<User[]> {
+  let query = sb
+    .from("users")
+    .select("id, name, email, role, status, created_at")
+    .order("created_at", { ascending: false });
+  if (filter?.status) query = query.eq("status", filter.status);
+  if (filter?.role) query = query.eq("role", filter.role);
+  return must(await query) as User[];
 }
 
-export function setUserStatus(
+export async function setUserStatus(
   userId: number,
   status: "approved" | "rejected",
-): void {
-  getDb().prepare("UPDATE users SET status = ? WHERE id = ?").run(status, userId);
+): Promise<void> {
+  must(await sb.from("users").update({ status }).eq("id", userId));
+}
+
+/* ------------------------------- Auth -------------------------------- */
+// Used by the login/register routes so all DB access stays in one module.
+
+export async function getUserAuthByEmail(email: string): Promise<
+  | { id: number; password_hash: string; role: Role; status: User["status"] }
+  | null
+> {
+  return (must(
+    await sb
+      .from("users")
+      .select("id, password_hash, role, status")
+      .eq("email", email)
+      .maybeSingle(),
+  ) as { id: number; password_hash: string; role: Role; status: User["status"] } | null) ?? null;
+}
+
+export async function emailExists(email: string): Promise<boolean> {
+  const count =
+    (
+      await sb
+        .from("users")
+        .select("id", { count: "exact", head: true })
+        .eq("email", email)
+    ).count ?? 0;
+  return count > 0;
+}
+
+export async function createPendingIntern(
+  name: string,
+  email: string,
+  passwordHash: string,
+): Promise<void> {
+  must(
+    await sb.from("users").insert({
+      name,
+      email,
+      password_hash: passwordHash,
+      role: "intern",
+      status: "pending",
+    }),
+  );
+}
+
+/** Reads the live session user record (used by auth.getSessionUser). */
+export async function getSessionUserRecord(uid: number): Promise<
+  Pick<User, "id" | "name" | "email" | "role" | "status"> | null
+> {
+  return (must(
+    await sb
+      .from("users")
+      .select("id, name, email, role, status")
+      .eq("id", uid)
+      .maybeSingle(),
+  ) as Pick<User, "id" | "name" | "email" | "role" | "status"> | null) ?? null;
 }

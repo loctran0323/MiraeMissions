@@ -16,9 +16,9 @@ export default async function ApprovalsPage() {
   const user = await getSessionUser();
   if (!user || user.role !== "admin") redirect("/login");
 
-  const pending = getUsers({ status: "pending" });
+  const pending = await getUsers({ status: "pending" });
   // Recently decided interns for context (already newest-first from the query).
-  const decided = getUsers({ role: "intern" })
+  const decided = (await getUsers({ role: "intern" }))
     .filter((u) => u.status !== "pending")
     .slice(0, 8);
 

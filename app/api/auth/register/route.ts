@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
+import { createPendingIntern, emailExists } from "@/lib/queries";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -30,9 +30,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const db = getDb();
-  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
-  if (existing) {
+  if (await emailExists(email)) {
     return NextResponse.json(
       { error: "An account with that email already exists." },
       { status: 409 },
@@ -40,10 +38,7 @@ export async function POST(req: Request) {
   }
 
   const password_hash = await hashPassword(password);
-  db.prepare(
-    `INSERT INTO users (name, email, password_hash, role, status)
-     VALUES (?, ?, ?, 'intern', 'pending')`,
-  ).run(name, email, password_hash);
+  await createPendingIntern(name, email, password_hash);
 
   return NextResponse.json({ ok: true });
 }

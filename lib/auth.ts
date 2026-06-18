@@ -2,8 +2,8 @@ import "server-only";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
-import { getDb } from "./db";
-import type { SessionUser, User } from "./types";
+import { getSessionUserRecord } from "./queries";
+import type { SessionUser } from "./types";
 
 const COOKIE_NAME = "mirae_session";
 const SECRET = new TextEncoder().encode(
@@ -47,9 +47,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   try {
     const { payload } = await jwtVerify(token, SECRET);
     const uid = payload.uid as number;
-    const row = getDb()
-      .prepare("SELECT id, name, email, role, status FROM users WHERE id = ?")
-      .get(uid) as User | undefined;
+    const row = await getSessionUserRecord(uid);
 
     // Only approved accounts hold a valid session.
     if (!row || row.status !== "approved") return null;

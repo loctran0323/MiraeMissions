@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     }
 
     // Verify the mission actually exists.
-    const mission = getAllMissions().find((m) => m.id === missionId);
+    const mission = (await getAllMissions()).find((m) => m.id === missionId);
     if (!mission) {
       return Response.json({ error: "Mission not found" }, { status: 404 });
     }
@@ -44,11 +44,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const subId = upsertSubmission(user.id, missionId, memo);
+    const subId = await upsertSubmission(user.id, missionId, memo);
 
     for (const file of files) {
       const saved = await saveUploadedFile(subId, file);
-      addSubmissionFile(subId, saved);
+      await addSubmissionFile(subId, saved);
     }
 
     return Response.json({ ok: true, submissionId: subId });

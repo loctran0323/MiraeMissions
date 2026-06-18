@@ -3,7 +3,7 @@ import { PeerCard } from "./PeerCard";
 
 // Peer progress overview — aggregate stats only, submissions stay private.
 export default async function PeerPage() {
-  const peers = getInternProgress();
+  const peers = await getInternProgress();
 
   return (
     <main className="bg-page min-h-screen">

@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   }
 
   if (action === "approve") {
-    reviewSubmission(submissionId, "approved", null);
+    await reviewSubmission(submissionId, "approved", null);
     return NextResponse.json({ ok: true });
   }
 
@@ -39,6 +39,6 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  reviewSubmission(submissionId, "needs_revision", note);
+  await reviewSubmission(submissionId, "needs_revision", note);
   return NextResponse.json({ ok: true });
 }

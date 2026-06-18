@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
 import { verifyPassword, createSession } from "@/lib/auth";
-import type { AccountStatus, Role } from "@/lib/types";
-
-type Row = { id: number; password_hash: string; role: Role; status: AccountStatus };
+import { getUserAuthByEmail } from "@/lib/queries";
 
 // POST { email, password } — approval-gated sign-in.
 export async function POST(req: Request) {
@@ -20,9 +17,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
   }
 
-  const row = getDb()
-    .prepare("SELECT id, password_hash, role, status FROM users WHERE email = ?")
-    .get(email) as Row | undefined;
+  const row = await getUserAuthByEmail(email);
 
   // Generic message for unknown email or bad password (avoid user enumeration).
   if (!row || !(await verifyPassword(password, row.password_hash))) {
