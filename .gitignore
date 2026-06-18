@@ -15,3 +15,6 @@ uploads/
 # env
 .env
 .env*.local
+
+# typescript build info
+*.tsbuildinfo
