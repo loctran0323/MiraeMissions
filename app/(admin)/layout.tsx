@@ -16,6 +16,7 @@ export default async function AdminLayout({
       <TopNav
         items={[
           { label: "Review queue", href: "/admin" },
+          { label: "Missions", href: "/admin/missions" },
           { label: "Intern progress", href: "/admin/progress" },
           { label: "Approvals", href: "/admin/approvals" },
         ]}

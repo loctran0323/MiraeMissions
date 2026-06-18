@@ -84,9 +84,9 @@ export function LoginForm() {
       <div className="rounded-md border border-line bg-ink-50 px-3.5 py-3 text-xs leading-relaxed text-ink-500">
         <span className="font-semibold text-ink-700">Demo accounts</span>
         <br />
-        Admin — admin@miraeasset.com / admin1234
+        Admin: admin@miraeasset.com / admin1234
         <br />
-        Intern — loc@miraeasset.com / intern1234
+        Intern: loc@miraeasset.com / intern1234
       </div>
     </form>
   );

@@ -1,5 +1,5 @@
 import "server-only";
-import { sb, must } from "./supabase";
+import { sb, must, UPLOADS_BUCKET } from "./supabase";
 import type {
   InternProgress,
   Mission,
@@ -321,6 +321,83 @@ export async function createPendingIntern(
       status: "pending",
     }),
   );
+}
+
+/* --------------------------- Mission admin ---------------------------- */
+
+function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
+/** Creates a mission (admin). Generates a unique slug and appends to the end. */
+export async function createMission(data: {
+  title: string;
+  short_description: string;
+  deliverable_type: string;
+  instructions: string;
+}): Promise<Mission> {
+  // Unique slug: append -2, -3, ... if the base is taken.
+  const base = slugify(data.title) || "mission";
+  let slug = base;
+  for (let n = 2; ; n++) {
+    const existing = await sb
+      .from("missions")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (!existing.data) break;
+    slug = `${base}-${n}`;
+  }
+
+  // Next sort_order = current max + 1.
+  const maxRow = (must(
+    await sb
+      .from("missions")
+      .select("sort_order")
+      .order("sort_order", { ascending: false })
+      .limit(1),
+  ) as { sort_order: number }[])[0];
+  const sort_order = (maxRow?.sort_order ?? -1) + 1;
+
+  return must(
+    await sb
+      .from("missions")
+      .insert({
+        slug,
+        title: data.title,
+        short_description: data.short_description,
+        deliverable_type: data.deliverable_type,
+        instructions: data.instructions,
+        sort_order,
+      })
+      .select("*")
+      .single(),
+  ) as Mission;
+}
+
+/** Deletes a mission (admin). Cleans up any uploaded files, then cascades. */
+export async function deleteMission(id: number): Promise<void> {
+  // Best-effort: remove uploaded objects for this mission's submissions before
+  // the DB cascade drops their rows.
+  const subs = (must(
+    await sb.from("submissions").select("id").eq("mission_id", id),
+  ) as { id: number }[]).map((s) => s.id);
+
+  if (subs.length) {
+    const files = must(
+      await sb.from("submission_files").select("path").in("submission_id", subs),
+    ) as { path: string }[];
+    if (files.length) {
+      await sb.storage.from(UPLOADS_BUCKET).remove(files.map((f) => f.path));
+    }
+  }
+
+  must(await sb.from("missions").delete().eq("id", id));
 }
 
 /** Reads the live session user record (used by auth.getSessionUser). */

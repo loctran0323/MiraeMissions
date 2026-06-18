@@ -38,8 +38,7 @@ export function AuthLayout({
               Your summer at Mirae Asset starts here.
             </h2>
             <p className="mt-5 max-w-md text-white/60">
-              Complete missions, submit your proof, and get reviewed by the team
-              — all in one place.
+              Complete missions, submit your proof, and get reviewed by the team.
             </p>
           </div>
           <div>
